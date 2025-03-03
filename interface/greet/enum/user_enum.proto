@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package enum;
+option go_package="./user_enum";
+
+enum UserEnum{
+  UserEnumUnknown = 0;
+}
