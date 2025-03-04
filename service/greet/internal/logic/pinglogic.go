@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"Quantum/internal/model/douyin_model/douyin_query"
 	"context"
 
 	"Quantum/interface/greet/pb"
@@ -25,6 +26,7 @@ func NewPingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PingLogic {
 
 func (l *PingLogic) Ping(in *__.Request) (*__.Response, error) {
 	// todo: add your logic here and delete this line
+	douyin_query.Comment.WithContext(l.ctx).First()
 
 	return &__.Response{}, nil
 }

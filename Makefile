@@ -12,38 +12,61 @@ PROTO_FILES := $(shell find ./interface -type f -name "*.proto")
 # 排除文件名中包含 enum.proto 的文件
 PROTO_FILES := $(filter-out ./interface/%enum.proto,$(PROTO_FILES))
 ENUM_PROTO_FILES := $(shell find ./interface -type d -name enum -exec find {} -name "*enum.proto" \;)
+
 # Default target
 .PHONY: all
 all: help
 
-# api服务 make demo
+.PHONY: install
+install:
+	@echo "Install Go-Zero"
+	go get -u github.com/zeromicro/go-zero@latest
+	go install github.com/zeromicro/go-zero/tools/goctl@latest
+	goctl env check --install --verbose --force
+	@echo "Install GORM"
+	go get -u gorm.io/gorm
+	go get -u gorm.io/driver/sqlite
+	go get -u gorm.io/gen
+	go install gorm.io/gen/tools/gentool@latest
+
+# api服务: make 服务名
 .PHONY: $(FILENAMES)
 $(FILENAMES):
 	@echo "Processing $@..."
 	goctl api format --dir "$(API_DIR)/$@/$@.api"
 	goctl api go --api "$(API_DIR)/$@/$@.api" --dir "$(API_DIR)/$@" --style goZero
+
+# rpc服务: 一键生成(包括枚举)
 .PHONY: proto
 proto:
-	@echo "Generating code from .proto files..."
+	@echo "Generating Enum Go files from proto files..."
+	@for file in $(ENUM_PROTO_FILES); do \
+		dir=$$(dirname $$file); \
+		echo "Processing enum file: $$file"; \
+		protoc --go_out=$$dir --proto_path=$$dir $$file; \
+	done
+	@echo "------------------------------------------------------------------"
+	@echo "Generating Service code from .proto files..."
 	@for file in $(PROTO_FILES); do \
 		filename=$$(basename "$$file" .proto); \
+		echo "Processing proto file: $$file"; \
 		goctl rpc protoc "$$file" --go_out=./interface/$$filename/pb --go-grpc_out=./interface/$$filename/pb --zrpc_out=./service/$$filename --client=false; \
 	done
 	@echo "Code generation completed."
-# 枚举定义 make enum
-.PHONY: enum
-enum:
-	@echo "Generating Go files from proto files..."
-	@for file in $(ENUM_PROTO_FILES); do \
-		dir=$$(dirname $$file); \
-		protoc --go_out=$$dir --proto_path=$$dir $$file; \
-	done
-	@echo "Generation complete."
+	@$(MAKE) --no-print-directory reset
+
+# 分隔符差异消除
+.PHONY: reset
+reset:
+	@rm -f .git/index
+	@git reset -q
+
 .PHONY: test
 test:
 	@echo services: $(FILENAMES)
 	@echo .proto: $(PROTO_FILES)
 	@echo enum: $(ENUM_PROTO_FILES)
+
 # Help target
 .PHONY: help
 help:
