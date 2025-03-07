@@ -1,17 +1,27 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"strings"
-
 	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"os"
+	"strings"
 )
 
-const MySQLDSN = "root:459440374a@(localhost:3306)/douyin?charset=utf8mb4&parseTime=True&loc=Local"
-
 func main() {
+	// 使用 flag 包接收命令行参数
+	database := flag.String("db", "", "Database name to use")
+	flag.Parse()
+
+	if *database == "" {
+		fmt.Println("Error: -db parameter is required.")
+		os.Exit(1)
+	}
+	// 替换数据库名称
+	MySQLDSN := fmt.Sprintf("root:459440374a@(localhost:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", *database)
+
 	// 连接数据库
 	db, err := gorm.Open(mysql.Open(MySQLDSN))
 	if err != nil {
@@ -20,7 +30,7 @@ func main() {
 
 	// 生成实例
 	g := gen.NewGenerator(gen.Config{
-		OutPath:          "./douyin_model/douyin_query/",
+		OutPath:          fmt.Sprintf("./internal/model/%s_model/%s_query/", *database, *database),
 		Mode:             gen.WithDefaultQuery | gen.WithQueryInterface | gen.WithoutContext,
 		FieldNullable:    true,
 		FieldCoverable:   false,
