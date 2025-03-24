@@ -68,6 +68,7 @@ proto:
 # 分隔符差异消除
 .PHONY: reset
 reset:
+#   @git config --global core.autocrlf false
 	@rm -f .git/index
 	@git reset -q
 
