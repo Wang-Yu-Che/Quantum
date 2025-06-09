@@ -79,6 +79,9 @@ test:
 	@echo enum: $(ENUM_PROTO_FILES)
 	@echo models: $(TARGETS)
 
+# git rm -r --cached .  #清除缓存
+# git add . #重新trace file
+
 # Help target
 .PHONY: help
 help:
