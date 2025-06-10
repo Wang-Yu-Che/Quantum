@@ -5,6 +5,7 @@ option go_package="./";
 
 message Request {
   string ping = 1;
+  string user_name = 2;
 }
 
 message Response {

@@ -36,12 +36,12 @@ func main() {
 		FieldCoverable:   false,
 		FieldSignable:    false,
 		FieldWithTypeTag: true,
-		FieldTypeMap: map[string]func(detailType string) (dataType string){
-            // 显式告诉 gen：字段名 is_deleted 应该用 gorm.DeletedAt 类型
-            "is_deleted": func(detailType string) string {
-                return "gorm.DeletedAt"
-            },
-        },
+		//FieldTypeMap: map[string]func(detailType string) (dataType string){
+		//    // 显式告诉 gen：字段名 is_deleted 应该用 gorm.DeletedAt 类型
+		//    "is_deleted": func(detailType string) string {
+		//        return "gorm.DeletedAt"
+		//    },
+		//},
 	})
 
 	// 设置目标 db
