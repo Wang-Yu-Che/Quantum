@@ -38,7 +38,7 @@ install:
 $(FILENAMES):
 	@echo "Processing $@..."
 	goctl api format --dir "$(API_DIR)/$@/$@.api"
-	goctl api go --api "$(API_DIR)/$@/$@.api" --dir "$(API_DIR)/$@" --style goZero
+	goctl api go --api "$(API_DIR)/$@/$@.api" --dir "$(API_DIR)/$@" --style go_zero
 
 # rpc服务: 一键生成(包括枚举)
 .PHONY: proto
@@ -54,7 +54,7 @@ proto:
 	@for file in $(PROTO_FILES); do \
 		filename=$$(basename "$$file" .proto); \
 		echo "Processing proto file: $$file"; \
-		goctl rpc protoc "$$file" --go_out=./interface/$$filename/pb --go-grpc_out=./interface/$$filename/pb --zrpc_out=./service/$$filename --client=false; \
+		goctl rpc protoc "$$file" --go_out=./interface/$$filename/pb --go-grpc_out=./interface/$$filename/pb --zrpc_out=./service/$$filename --style go_zero; \
 	done
 	@echo "Code generation completed."
 	@$(MAKE) --no-print-directory reset

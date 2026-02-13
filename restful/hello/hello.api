@@ -8,3 +8,19 @@ info (
 	version: "type version here"
 )
 
+type (
+	Req {
+		FirstName string `path:"firstName"`
+		LastName  string `form:"lastName"`
+		Action    string `json:"action"`
+	}
+	Res {
+		Message string `json:"message"`
+	}
+)
+
+service hello {
+	@handler HelloHandler
+	get /hello/:firstName (Req) returns (Res)
+}
+

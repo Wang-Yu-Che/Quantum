@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package enum;
-option go_package="./hello_enum";
-
-enum ClientEnum{
-  ClientEnumUnknown = 0;
-}

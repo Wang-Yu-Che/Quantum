@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"Quantum/interface/hello/pb"
+	"Quantum/interface/hello/pb/hello"
 	"Quantum/service/hello/internal/config"
 	"Quantum/service/hello/internal/server"
 	"Quantum/service/hello/internal/svc"
@@ -26,7 +26,7 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
-		__.RegisterGreetServer(grpcServer, server.NewGreetServer(ctx))
+		hello.RegisterHelloServer(grpcServer, server.NewHelloServer(ctx))
 
 		if c.Mode == service.DevMode || c.Mode == service.TestMode {
 			reflection.Register(grpcServer)

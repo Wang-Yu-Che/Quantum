@@ -1,17 +1,18 @@
 syntax = "proto3";
 
 package hello;
-option go_package="./";
+
+option go_package="./hello";
 
 message Request {
-  string ping = 1;
-  string user_name = 2;
+  string firstName = 1;
+  string lastName = 2;
 }
 
 message Response {
-  string pong = 1;
+  string msg = 1;
 }
 
-service Greet {
-  rpc Ping(Request) returns(Response);
+service Hello {
+  rpc Hello(Request) returns(Response);
 }
