@@ -3,10 +3,6 @@
 # Define the directory to scan
 API_DIR := restful
 
-# Apifox
-APIFOX_PROJECT_ID := 5185764
-APIFOX_TOKEN := afxp_d61b1beVqkVIcdsyg4nM8rIYwRzR16tBCk2a
-
 # Define a variable to store the list of filenames without extension
 # Scan for .api files in subdirectories of 'restful' and extract filenames without extension
 FILENAMES := $(shell find $(API_DIR) -mindepth 2 -type f -name "*.api" -exec sh -c 'basename "{}" .api' \;)
@@ -84,31 +80,24 @@ test:
 	@echo models: $(TARGETS)
 
 # 生成所有 API 的 swagger 文档
-.PHONY: swagger
-swagger:
-	@echo "Generating swagger files for all api services..."
+.PHONY: gen-swagger upload-swagger
+
+gen-swagger:
+	@echo "Generating swagger files..."
 	@mkdir -p ./docs/swagger
 	@for name in $(FILENAMES); do \
 		api_file="$(API_DIR)/$$name/$$name.api"; \
-		echo "Generating swagger for $$api_file"; \
-		goctl api swagger --api "$$api_file" --dir ./docs/swagger --filename "$$name"; \
+		goctl api swagger --api "$$api_file" --dir ./docs/swagger --filename "$$name" || exit 1; \
 	done
 	@echo "Swagger generation completed. Files are in ./docs/swagger"
 
-.PHONY: apifox
-apifox:
-	@echo "Pushing swagger files in ./docs/swagger to Apifox..."
-	@for file in ./docs/swagger/*.yaml ./docs/swagger/*.json; do \
-		if [ -f "$$file" ]; then \
-			echo "Uploading $$file to Apifox..."; \
-			curl -X POST "https://api.apifox.com/v1/projects/$(APIFOX_PROJECT_ID)/import-openapi" \
-              -H "Authorization: Bearer $(APIFOX_TOKEN)" \
-              -F "file=@$$file"
-		fi \
-	done
+
+upload-swagger:
+	@echo "Uploading all swagger files to Apifox..."
+	@go run ./script/swagger/upload_apifox.go || exit 1
 	@echo "Apifox sync completed."
 
-
+swagger: gen-swagger upload-swagger
 
 # git rm -r --cached .  #清除缓存
 # git add . #重新trace file

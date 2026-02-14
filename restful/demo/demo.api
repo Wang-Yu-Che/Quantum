@@ -1,0 +1,41 @@
+syntax = "v1"
+
+info (
+    title:   "User API"
+    desc:    "用户相关接口"
+    author:  "your-name"
+    version: "1.0"
+)
+
+type (
+    UserLoginReq {
+        Username string `json:"username"`
+        Password string `json:"password"`
+    }
+
+    UserLoginResp {
+        AccessToken string `json:"accessToken"`
+        Expire      int64  `json:"expire"`
+    }
+
+    UserInfoReq {
+        UserId int64 `json:"userId"`
+    }
+
+    UserInfoResp {
+        UserId   int64  `json:"userId"`
+        Username string `json:"username"`
+        Email    string `json:"email"`
+    }
+)
+
+@server (
+    tags: "用户操作"
+)
+service Swagger {
+    @handler login
+    post /user/login (UserLoginReq) returns (UserLoginResp)
+
+    @handler userInfo
+    post /user/info (UserInfoReq) returns (UserInfoResp)
+}
