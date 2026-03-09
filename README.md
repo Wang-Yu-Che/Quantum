@@ -4,6 +4,7 @@
 
 ```markdown
 .
+├── docs                # 文档说明
 ├── consumer            # 队列消费服务
 ├── go.mod              # Go 模块依赖文件
 ├── internal            # 工程内部可访问的公共模块
