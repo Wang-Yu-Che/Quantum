@@ -1,0 +1,5 @@
+Name: hello
+Host: 0.0.0.0
+Port: 8888
+Hello:
+  Target: k8s://default/hello-rpc:8080
