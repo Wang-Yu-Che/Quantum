@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: login ghcr
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: build api image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/hello-api:v1 -f service/hello/Dockerfile .
+
+      - name: push api image
+        run: |
+          docker push ghcr.io/${{ github.repository }}/hello-api:v1
+
+  build-rpc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: login ghcr
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: build rpc image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/hello-rpc:v1 -f service/hello-rpc/Dockerfile .
+
+      - name: push rpc image
+        run: |
+          docker push ghcr.io/${{ github.repository }}/hello-rpc:v1
