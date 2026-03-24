@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: hello-rpc
-        image: ghcr.io/wang-yu-che/quantum/hello-rpc:v1
+        image: ghcr.io/wang-yu-che/quantum/hello-rpc:latest
         ports:
         - containerPort: 8080
         readinessProbe:

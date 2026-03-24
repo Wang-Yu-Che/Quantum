@@ -31,11 +31,11 @@ jobs:
 
       - name: build api image
         run: |
-          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:v1 -f restful/hello/Dockerfile .
+          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.sha }} -f restful/hello/Dockerfile .
 
       - name: push api image
         run: |
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:v1
+          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.sha }}
 
 
   build-rpc:
@@ -54,8 +54,8 @@ jobs:
 
       - name: build rpc image
         run: |
-          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:v1 -f service/hello/Dockerfile .
+          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.sha }} -f service/hello/Dockerfile .
 
       - name: push rpc image
         run: |
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:v1
+          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.sha }}
