@@ -2,4 +2,4 @@ Name: hello
 Host: 0.0.0.0
 Port: 8888
 Hello:
-  Target: dns:///hello-rpc.default.svc.cluster.local:8080
+  Target: dns:///hello-rpc-svc.default.svc.cluster.local:8080
