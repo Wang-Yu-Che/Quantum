@@ -30,7 +30,7 @@ jobs:
 
       - name: deploy to k3s
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f build/k8s/
 
       # ✅ 等待部署完成（非常关键）
       - name: rollout status

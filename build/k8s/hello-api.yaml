@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: hello-api
-        image: ghcr.io/Wang-Yu-Che/hello-api:v1
+        image: ghcr.io/wang-yu-che/quantum/hello-api:v1
         ports:
         - containerPort: 8888
         readinessProbe:
