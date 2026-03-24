@@ -32,13 +32,17 @@ jobs:
         run: |
           kubectl apply -f build/k8s/
 
+      - name: lowercase repo
+        id: repo
+        run: echo "repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: update image
         run: |
           kubectl set image deployment/hello-api \
-          hello-api=ghcr.io/${{ github.repository }}/hello-api:${{ github.event.workflow_run.head_sha }} -n default
+          hello-api=ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.event.workflow_run.head_sha }} -n default
 
           kubectl set image deployment/hello-rpc \
-          hello-rpc=ghcr.io/${{ github.repository }}/hello-rpc:${{ github.event.workflow_run.head_sha }} -n default
+          hello-rpc=ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.event.workflow_run.head_sha }} -n default
 
 
       # ✅ 等待部署完成（非常关键）
