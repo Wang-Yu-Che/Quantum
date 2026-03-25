@@ -99,6 +99,22 @@ upload-swagger:
 
 swagger: gen-swagger upload-swagger
 
+# Docker image generation from Go files in service and restful folders
+.PHONY: docker
+docker:
+	@echo "Generating Docker files for services..."
+	@for base_dir in service restful; do \
+		find "$$base_dir" -mindepth 1 -maxdepth 1 -type d | while read dir; do \
+			dir_name=$$(basename "$$dir"); \
+			go_file="$$dir/$$dir_name.go"; \
+			if [ -f "$$go_file" ]; then \
+				echo "Processing Docker for $$dir_name in $$dir"; \
+				(cd "$$dir" && goctl docker -go "$$dir_name.go"); \
+			fi; \
+		done; \
+	done
+	@echo "Docker generation completed."
+
 # git rm -r --cached .  #清除缓存
 # git add . #重新trace file
 
@@ -110,6 +126,7 @@ help:
 	@echo "  make <filename>     Process a specific .api file by its filename (without extension)"
 	@echo "  make proto          Generate RPC code from .proto files (excluding enum files)"
 	@echo "  make <model_name>_model  Generate GORM models for a specific database"
+	@echo "  make docker        Generate Docker files for services with matching .go files"
 	@echo "  make swagger        Generate swagger files for all api services into ./docs"
 	@echo "  make reset          Reset the repository (remove .git/index)"
 	@echo "  make test           Print debug information (services, proto files, enum files, models)"
