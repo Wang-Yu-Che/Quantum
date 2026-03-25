@@ -3,15 +3,13 @@ kind: Deployment
 metadata:
   name: hello-rpc
   namespace: default
-  labels:
-    app: hello-rpc
 spec:
-  replicas: 1  # 2C2G 环境建议 1 个起步，靠 HPA 扩容
+  replicas: 1
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1       # 滚动更新时只允许额外多出 1 个 Pod，防止内存瞬间耗尽
+      maxSurge: 1
       maxUnavailable: 0
   selector:
     matchLabels:
@@ -24,26 +22,26 @@ spec:
       containers:
         - name: hello-rpc
           image: ghcr.io/wang-yu-che/quantum/hello-rpc:latest
-          imagePullPolicy: IfNotPresent # 关键：优先使用本地导入的镜像，避免网络卡死
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           readinessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 10 # 延长一点，给 RPC 启动留时间
+            initialDelaySeconds: 15 # ✅ 稍微延长，减少启动瞬间的探测压力
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30 # ✅ 给足够的时间初始化
             periodSeconds: 20
           resources:
             requests:
               cpu: 50m
               memory: 64Mi
             limits:
-              cpu: 800m     # --- 关键：允许启动时瞬时冲高，减少 100% CPU 的持续时间 ---
-              memory: 160Mi # --- 关键：严格限制内存，2G 机器必须精打细算 ---
+              cpu: 800m
+              memory: 160Mi
           volumeMounts:
             - name: timezone
               mountPath: /etc/localtime
@@ -63,13 +61,11 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
-      protocol: TCP
   selector:
     app: hello-rpc
 
 ---
 
-# 合并后的 HPA，针对 2C2G 优化
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -80,22 +76,27 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: hello-rpc
-  minReplicas: 1  # 2C2G 建议起步 1
-  maxReplicas: 3  # 2C2G 建议上限 3 (加上 API 的 3 个，刚好占满 2G 内存)
+  minReplicas: 1
+  maxReplicas: 2  # ✅ 关键：2C2G 环境下，单个服务上限设为 2 比较稳妥
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 75 # CPU 75% 扩容
+          averageUtilization: 85 # ✅ 提高阈值，防止启动瞬间误扩容
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 85 # 内存 85% 扩容
+          averageUtilization: 90 # ✅ 提高阈值，内存达到 90% 再扩容
   behavior:
     scaleUp:
-      # 部署瞬间 CPU 100% 时，等 60 秒再扩容，避免无效扩容（防止自杀式扩容）
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 180 # ✅ 关键：压力持续 3 分钟才扩容，躲过启动峰值
+      policies:
+        - type: Pods
+          value: 1 # ✅ 限制：每次扩容只增加 1 个 Pod，防止瞬间内存翻倍
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300 # 5 分钟内负载低才缩容，防止频繁抖动
