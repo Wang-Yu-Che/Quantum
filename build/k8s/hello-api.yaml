@@ -6,8 +6,13 @@ metadata:
   labels:
     app: hello-api
 spec:
-  replicas: 1
-  revisionHistoryLimit: 5
+  replicas: 1  # 2C2G 环境建议默认 1 个，由 HPA 动态增加
+  revisionHistoryLimit: 3 # 减少历史版本保留，节省空间
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1       # 升级时只多开 1 个 Pod，防止内存瞬间撑爆
+      maxUnavailable: 0 # 保证升级期间始终有旧版在跑
   selector:
     matchLabels:
       app: hello-api
@@ -16,31 +21,35 @@ spec:
       labels:
         app: hello-api
     spec:
+      # 如果你需要拉取私有镜像，取消下面注释并确保 secret 已创建
+      # imagePullSecrets:
+      # - name: ghcr-login-secret
       containers:
-      - name: hello-api
-        image: ghcr.io/wang-yu-che/quantum/hello-api:latest
-        ports:
-        - containerPort: 8888
-        readinessProbe:
-          tcpSocket:
-            port: 8888
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        livenessProbe:
-          tcpSocket:
-            port: 8888
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
-        volumeMounts:
-        - name: timezone
-          mountPath: /etc/localtime
+        - name: hello-api
+          image: ghcr.io/wang-yu-che/quantum/hello-api:latest
+          imagePullPolicy: IfNotPresent # 优先使用本地镜像，避免部署时卡在网络拉取
+          ports:
+            - containerPort: 8888
+          readinessProbe: # 就绪探针
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 10 # 稍微延长，给 Go 程序初始化时间
+            periodSeconds: 10
+          livenessProbe: # 存活探针
+            tcpSocket:
+              port: 8888
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m      # 基础保障 0.05 核
+              memory: 64Mi
+            limits:
+              cpu: 800m     # --- 关键：允许启动时爆发使用 CPU，启动完会自动降下来 ---
+              memory: 160Mi # 2G 机器内存很贵，严格限制上限，防止 OOM 导致死机
+          volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
       volumes:
         - name: timezone
           hostPath:
@@ -55,55 +64,39 @@ metadata:
   namespace: default
 spec:
   ports:
-  - port: 8888
-    targetPort: 8888
+    - port: 8888
+      targetPort: 8888
   selector:
     app: hello-api
 
 ---
 
+# 合并后的 HPA：一个控制器同时监控 CPU 和 内存
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hello-api-hpa-c
+  name: hello-api-hpa
   namespace: default
-  labels:
-    app: hello-api-hpa-c
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: hello-api
-  minReplicas: 3
-  maxReplicas: 10
+  minReplicas: 1  # --- 关键：2C2G 建议 1 个起步 ---
+  maxReplicas: 3  # --- 关键：2C2G 不要超过 3 个，否则内存会爆 ---
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 80
-
----
-
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: hello-api-hpa-m
-  namespace: default
-  labels:
-    app: hello-api-hpa-m
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: hello-api
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70 # CPU 达到 70% 触发扩容
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85 # 内存达到 85% 触发扩容
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60 # 60 秒内 CPU 持续高才扩容，过滤掉启动瞬间的峰值

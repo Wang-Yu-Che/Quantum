@@ -6,8 +6,13 @@ metadata:
   labels:
     app: hello-rpc
 spec:
-  replicas: 1
-  revisionHistoryLimit: 5
+  replicas: 1  # 2C2G 环境建议 1 个起步，靠 HPA 扩容
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1       # 滚动更新时只允许额外多出 1 个 Pod，防止内存瞬间耗尽
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: hello-rpc
@@ -17,30 +22,31 @@ spec:
         app: hello-rpc
     spec:
       containers:
-      - name: hello-rpc
-        image: ghcr.io/wang-yu-che/quantum/hello-rpc:latest
-        ports:
-        - containerPort: 8080
-        readinessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        livenessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
-        volumeMounts:
-        - name: timezone
-          mountPath: /etc/localtime
+        - name: hello-rpc
+          image: ghcr.io/wang-yu-che/quantum/hello-rpc:latest
+          imagePullPolicy: IfNotPresent # 关键：优先使用本地导入的镜像，避免网络卡死
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10 # 延长一点，给 RPC 启动留时间
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 800m     # --- 关键：允许启动时瞬时冲高，减少 100% CPU 的持续时间 ---
+              memory: 160Mi # --- 关键：严格限制内存，2G 机器必须精打细算 ---
+          volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
       volumes:
         - name: timezone
           hostPath:
@@ -55,55 +61,41 @@ metadata:
   namespace: default
 spec:
   ports:
-  - port: 8080
-    targetPort: 8080
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
   selector:
     app: hello-rpc
 
 ---
 
+# 合并后的 HPA，针对 2C2G 优化
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hello-rpc-hpa-c
+  name: hello-rpc-hpa
   namespace: default
-  labels:
-    app: hello-rpc-hpa-c
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: hello-rpc
-  minReplicas: 3
-  maxReplicas: 10
+  minReplicas: 1  # 2C2G 建议起步 1
+  maxReplicas: 3  # 2C2G 建议上限 3 (加上 API 的 3 个，刚好占满 2G 内存)
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 80
-
----
-
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: hello-rpc-hpa-m
-  namespace: default
-  labels:
-    app: hello-rpc-hpa-m
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: hello-rpc
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75 # CPU 75% 扩容
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85 # 内存 85% 扩容
+  behavior:
+    scaleUp:
+      # 部署瞬间 CPU 100% 时，等 60 秒再扩容，避免无效扩容（防止自杀式扩容）
+      stabilizationWindowSeconds: 60

@@ -28,25 +28,33 @@ jobs:
         run: |
           kubectl get nodes
 
-      - name: deploy to k3s
-        run: |
-          kubectl apply -f build/k8s/
-
       - name: lowercase repo
         id: repo
         run: echo "repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: update image
+      - name: set tag
         run: |
-          kubectl set image deployment/hello-api \
-          hello-api=ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.event.workflow_run.head_sha }} -n default
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+          # 如果是 Build 流程触发的，获取 Build 流程那个 commit 的 SHA
+          echo "IMG_TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+          else
+            # 如果是手动触发 (workflow_dispatch)，获取当前分支最新的 commit SHA
+            # 这通常就是你刚刚 Build 出来的那个镜像的 Tag
+            echo "IMG_TAG=${{ github.sha }}" >> $GITHUB_ENV
+          fi
 
-          kubectl set image deployment/hello-rpc \
-          hello-rpc=ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.event.workflow_run.head_sha }} -n default
-
-
-      # ✅ 等待部署完成（非常关键）
-      - name: rollout status
+      # ✅ 优化：部署 RPC。先改文件再 apply，保证只启动一次 Pod
+      - name: deploy rpc
         run: |
-          kubectl rollout status deployment/hello-api -n default
-          kubectl rollout status deployment/hello-rpc -n default
+          sed -i "s|image: .*hello-rpc.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ env.IMG_TAG }}|g" build/k8s/hello-rpc.yaml
+          kubectl apply -f build/k8s/hello-rpc.yaml
+          # 等待 RPC 就绪，超时设为 3 分钟防死锁
+          kubectl rollout status deployment/hello-rpc -n default --timeout=180s
+
+      # ✅ 优化：部署 API。同理，RPC 稳了之后再开始 API
+      - name: deploy api
+        run: |
+          sed -i "s|image: .*hello-api.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ env.IMG_TAG }}|g" build/k8s/hello-api.yaml
+          kubectl apply -f build/k8s/hello-api.yaml
+          # 等待 API 就绪
+          kubectl rollout status deployment/hello-api -n default --timeout=180s
