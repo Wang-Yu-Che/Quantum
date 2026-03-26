@@ -115,6 +115,56 @@ docker:
 	done
 	@echo "Docker generation completed."
 
+# 基础镜像前缀和命名空间
+IMAGE_PREFIX = ghcr.io/wang-yu-che/quantum
+NAMESPACE = default
+OUTPUT_DIR = build/k8s
+
+.PHONY: kube
+kube:
+	@echo "Generating K8s Deployment files into $(OUTPUT_DIR)..."
+	@mkdir -p $(OUTPUT_DIR)
+	@for base_dir in restful service; do \
+		if [ -d "$$base_dir" ]; then \
+			find "$$base_dir" -mindepth 1 -maxdepth 1 -type d | while read dir; do \
+				dir_name=$$(basename "$$dir"); \
+				yaml_file="$$dir/etc/$$dir_name.yaml"; \
+				if [ -f "$$yaml_file" ]; then \
+					if [ "$$base_dir" = "restful" ]; then \
+						port=$$(grep "^Port:" "$$yaml_file" | awk '{print $$2}'); \
+						kube_name="$$dir_name-api"; \
+					else \
+						port=$$(grep "^ListenOn:" "$$yaml_file" | awk -F ':' '{print $$NF}'); \
+						kube_name="$$dir_name-rpc"; \
+					fi; \
+					\
+					if [ -z "$$port" ]; then \
+						echo "Warning: Port/ListenOn not found in $$yaml_file, skipping..."; \
+					else \
+						echo "Processing $$kube_name (Port: $$port) from $$yaml_file"; \
+						goctl kube deploy \
+							-name "$$kube_name" \
+							-namespace $(NAMESPACE) \
+							-image "$(IMAGE_PREFIX)/$$kube_name:latest" \
+							-port "$$port" \
+							-targetPort "$$port" \
+							-replicas 1 \
+							-minReplicas 1 \
+							-maxReplicas 2 \
+							-requestCpu 50 \
+							-requestMem 64 \
+							-limitCpu 800 \
+							-limitMem 160 \
+							-revisions 3 \
+							-imagePullPolicy IfNotPresent \
+							-o "$(OUTPUT_DIR)/$$kube_name.yaml"; \
+					fi; \
+				fi; \
+			done; \
+		fi; \
+	done
+	@echo "K8s generation completed."
+
 # git rm -r --cached .  #清除缓存
 # git add . #重新trace file
 
@@ -127,6 +177,7 @@ help:
 	@echo "  make proto          Generate RPC code from .proto files (excluding enum files)"
 	@echo "  make <model_name>_model  Generate GORM models for a specific database"
 	@echo "  make docker        Generate Docker files for services with matching .go files"
+	@echo "  make kube           Batch generate K8s YAMLs into build/k8s (scans Port/ListenOn from etc/*.yaml)"
 	@echo "  make swagger        Generate swagger files for all api services into ./docs"
 	@echo "  make reset          Reset the repository (remove .git/index)"
 	@echo "  make test           Print debug information (services, proto files, enum files, models)"
