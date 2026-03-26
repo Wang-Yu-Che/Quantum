@@ -1,13 +1,10 @@
 name: Build
 
 on:
-  workflow_dispatch:   # ✅ 手动触发
-
-#  push:
-#    branches: [ "main" ]
-
+  workflow_dispatch:
 
 env:
+  # 注意：这里保持原样，也可以在 job 里动态获取
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
 
 permissions:
@@ -15,9 +12,9 @@ permissions:
   packages: write
 
 jobs:
+  # --- API 构建任务 ---
   build-api:
     runs-on: ubuntu-latest
-
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -29,18 +26,29 @@ jobs:
       - name: login ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: build api image
+      - name: build and push restful images
         run: |
-          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.sha }} -f restful/hello/Dockerfile .
+          # 遍历 restful 文件夹下的每一个子目录
+          for dir in restful/*/; do
+            # 检查子目录下是否有 Dockerfile
+            if [ -f "${dir}Dockerfile" ]; then
+              # 提取文件夹名 (如: hello)
+              service_name=$(basename "$dir")
+              # 构造完整的镜像名 (文件夹名-api)
+              image_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-api:${{ github.sha }}"
+          
+              echo "------------------------------------------"
+              echo "🔨 Building API: $service_name"
+              echo "🏷️ Tag: $image_tag"
+          
+              docker build -t "$image_tag" -f "${dir}Dockerfile" .
+              docker push "$image_tag"
+            fi
+          done
 
-      - name: push api image
-        run: |
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ github.sha }}
-
-
+  # --- RPC 构建任务 ---
   build-rpc:
     runs-on: ubuntu-latest
-
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -52,10 +60,22 @@ jobs:
       - name: login ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: build rpc image
+      - name: build and push rpc images
         run: |
-          docker build -t ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.sha }} -f service/hello/Dockerfile .
-
-      - name: push rpc image
-        run: |
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ github.sha }}
+          # 遍历 service 文件夹下的每一个子目录
+          for dir in service/*/; do
+            # 检查子目录下是否有 Dockerfile
+            if [ -f "${dir}Dockerfile" ]; then
+              # 提取文件夹名 (如: hello)
+              service_name=$(basename "$dir")
+              # 构造完整的镜像名 (文件夹名-rpc)
+              image_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-rpc:${{ github.sha }}"
+          
+              echo "------------------------------------------"
+              echo "🔨 Building RPC: $service_name"
+              echo "🏷️ Tag: $image_tag"
+          
+              docker build -t "$image_tag" -f "${dir}Dockerfile" .
+              docker push "$image_tag"
+            fi
+          done

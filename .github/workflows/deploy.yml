@@ -43,18 +43,51 @@ jobs:
             echo "IMG_TAG=${{ github.sha }}" >> $GITHUB_ENV
           fi
 
-      # ✅ 优化：部署 RPC。先改文件再 apply，保证只启动一次 Pod
-      - name: deploy rpc
+      # ✅ 自动化部署所有 RPC 服务
+      - name: deploy all rpc services
         run: |
-          sed -i "s|image: .*hello-rpc.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/hello-rpc:${{ env.IMG_TAG }}|g" build/k8s/hello-rpc.yaml
-          kubectl apply -f build/k8s/hello-rpc.yaml
-          # 等待 RPC 就绪，超时设为 3 分钟防死锁
-          kubectl rollout status deployment/hello-rpc -n default --timeout=180s
+          # 遍历所有以 -rpc.yaml 结尾的文件
+          for yaml in build/k8s/*-rpc.yaml; do
+            if [ -f "$yaml" ]; then
+              # 从文件名获取服务名 (例如从 hello-rpc.yaml 提取出 hello-rpc)
+              filename=$(basename "$yaml" .yaml)
+              # 提取基础服务名 (例如 hello)
+              service_name=${filename%-rpc}
+          
+              echo "🚀 Deploying RPC Service: $service_name"
+          
+              # 动态替换镜像地址
+              # 匹配规则：替换包含 $service_name-rpc 的镜像行
+              sed -i "s|image: .*$service_name-rpc.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-rpc:${{ github.sha }}|g" "$yaml"
+          
+              # 执行部署
+              kubectl apply -f "$yaml"
+          
+              # 等待就绪 (假设 Deployment 的名字和文件名一致)
+              echo "⏳ Waiting for $filename rollout..."
+              kubectl rollout status deployment/$filename -n default --timeout=180s
+            fi
+          done
 
-      # ✅ 优化：部署 API。同理，RPC 稳了之后再开始 API
-      - name: deploy api
+      # ✅ 自动化部署所有 API 服务
+      - name: deploy all api services
         run: |
-          sed -i "s|image: .*hello-api.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/hello-api:${{ env.IMG_TAG }}|g" build/k8s/hello-api.yaml
-          kubectl apply -f build/k8s/hello-api.yaml
-          # 等待 API 就绪
-          kubectl rollout status deployment/hello-api -n default --timeout=180s
+          # 遍历所有以 -api.yaml 结尾的文件
+          for yaml in build/k8s/*-api.yaml; do
+            if [ -f "$yaml" ]; then
+              filename=$(basename "$yaml" .yaml)
+              service_name=${filename%-api}
+          
+              echo "🚀 Deploying API Service: $service_name"
+          
+              # 动态替换镜像地址
+              sed -i "s|image: .*$service_name-api.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-api:${{ github.sha }}|g" "$yaml"
+          
+              # 执行部署
+              kubectl apply -f "$yaml"
+          
+              # 等待就绪
+              echo "⏳ Waiting for $filename rollout..."
+              kubectl rollout status deployment/$filename -n default --timeout=180s
+            fi
+          done
