@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package demo;
+
+option go_package = "./demo";
+
+// 用户登录请求
+message UserLoginReq {
+  string username = 1;
+  string password = 2;
+}
+
+// 用户登录响应
+message UserLoginResp {
+  string access_token = 1;
+  int64 expire = 2;
+}
+
+// 获取用户信息请求
+message UserInfoReq {
+  int64 user_id = 1;
+}
+
+// 获取用户信息响应
+message UserInfoResp {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+}
+
+// 用户操作服务
+service Demo {
+  // 登录
+  rpc Login(UserLoginReq) returns (UserLoginResp);
+  // 获取用户信息
+  rpc UserInfo(UserInfoReq) returns (UserInfoResp);
+}

@@ -1,0 +1,6 @@
+Name: Demo
+Host: 0.0.0.0
+Port: 8889
+Demo:
+  Endpoints:
+    - 127.0.0.1:8088
