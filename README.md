@@ -16,3 +16,40 @@
 ├── service             # gRPC 服务目录，下存放以服务为维度的微服务
 └── Makefile            # 快速构建脚本
 ```
+
+## k8s命令提示
+
+### 查看所有pod
+```shell
+kubectl get pods -A
+```
+
+### 关闭服务
+```shell
+kubectl delete deployment 服务名
+```
+
+### 强制删除该 Pod
+```shell
+kubectl delete pod <pod名字> --grace-period=0 --force
+```
+
+### 查看 Ingress(对外开放接口)
+```shell
+kubectl get ingress
+```
+
+### 查看 Service
+```shell
+kubectl get svc
+```
+
+### 查看本地镜像
+```shell
+k3s crictl images
+```
+
+### 删除镜像
+```shell
+k3s crictl rmi 镜像名/镜像ID
+```
