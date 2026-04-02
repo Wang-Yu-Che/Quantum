@@ -1,6 +1,0 @@
-Name: Demo
-Host: 0.0.0.0
-Port: 8889
-Demo:
-  Endpoints:
-    - demo-rpc:8088
