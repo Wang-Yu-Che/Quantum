@@ -17,7 +17,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-//go:embed assets/index.html
+//go:embed assets/*
 var content embed.FS
 
 var configFile = flag.String("f", "etc/hello-dev.yaml", "the config file")
@@ -43,6 +43,12 @@ func main() {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write(file)
 		}),
+	})
+
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/assets/:file",
+		Handler: http.FileServer(http.FS(content)).ServeHTTP,
 	})
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
