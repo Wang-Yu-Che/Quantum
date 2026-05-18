@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>520 特别惊喜</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #ffeef2;
+            font-family: 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+        }
+
+        /* 初始提问卡片 */
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 50px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(255, 105, 135, 0.3);
+            z-index: 100;
+            max-width: 85%;
+            transition: all 0.5s;
+        }
+
+        h1 {
+            color: #d81b60;
+            font-size: 2rem;
+            margin-bottom: 40px;
+            line-height: 1.4;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #btn-yes {
+            background: linear-gradient(45deg, #ff4081, #ff80ab);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 64, 129, 0.4);
+        }
+
+        #btn-no {
+            background-color: #bdc3c7;
+            color: white;
+        }
+
+        /* 照片墙容器 - 颜色已修改 */
+        #photo-wall {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            /* 修改这里：使用了温馨的径向渐变粉色 */
+            background: radial-gradient(circle, #fff0f3 0%, #ffc1e3 100%);
+            z-index: 200;
+            overflow: hidden;
+        }
+
+        /* 单张照片样式 */
+        .photo-item {
+            position: absolute;
+            width: 180px;
+            height: 230px;
+            object-fit: cover;
+            border: 6px solid white; /* 拍立得边框感 */
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+            border-radius: 4px;
+            animation: popIn 0.6s both cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); top: 50%; left: 50%; }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* 最后的文字 - 增加了投影确保在浅色背景下可见 */
+        .final-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 300;
+            color: #d81b60;
+            font-size: 4rem;
+            text-shadow:
+                    2px 2px 0px white,
+                    -2px -2px 0px white,
+                    2px -2px 0px white,
+                    -2px 2px 0px white,
+                    0 0 20px rgba(255,255,255,0.8);
+            white-space: nowrap;
+            display: none;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* 背景爱心动画 */
+        .bg-heart {
+            position: absolute;
+            color: rgba(255, 64, 129, 0.3);
+            pointer-events: none;
+            animation: floatUp 5s linear infinite;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(110vh) scale(1); }
+            100% { transform: translateY(-10vh) scale(1.5); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="main-card">
+    <h1 id="question">你愿意陪我度过这个520吗？</h1>
+    <div class="buttons">
+        <button id="btn-yes">我愿意！❤️</button>
+        <button id="btn-no">再想想</button>
+    </div>
+</div>
+
+<!-- 照片墙容器 -->
+<div id="photo-wall"></div>
+<div class="final-text" id="final-msg">鸭头，比心 ❤️</div>
+
+<script>
+    const btnYes = document.getElementById('btn-yes');
+    const btnNo = document.getElementById('btn-no');
+    const mainCard = document.getElementById('main-card');
+    const photoWall = document.getElementById('photo-wall');
+    const finalMsg = document.getElementById('final-msg');
+
+    let yesScale = 1;
+    let clickCount = 0;
+
+    btnNo.addEventListener('click', () => {
+        clickCount++;
+        yesScale += 0.5;
+        btnYes.style.transform = `scale(${yesScale})`;
+        const phrases = ["真的不考虑下？", "工资卡都给你", "家务我全包", "不许再点这个了！", "点左边那个嘛~"];
+        document.getElementById('question').innerText = phrases[Math.min(clickCount-1, phrases.length-1)];
+        btnNo.style.transform = `scale(${Math.max(0.4, 1 - clickCount * 0.15)})`;
+        if (clickCount >= 4) {
+            btnNo.style.position = 'fixed';
+            btnNo.style.bottom = '20px';
+            btnNo.style.right = '20px';
+        }
+    });
+
+    btnYes.addEventListener('click', () => {
+        mainCard.style.display = 'none';
+        photoWall.style.display = 'block';
+
+        const photoCount = 50; // 增加到50张，更密集
+        const imageSrc = "/assets/520.jpg";
+
+        for (let i = 0; i < photoCount; i++) {
+            setTimeout(() => {
+                const img = document.createElement('img');
+                img.src = imageSrc;
+                img.className = 'photo-item';
+
+                // 随机位置（全屏）
+                const top = Math.random() * 100;
+                const left = Math.random() * 100;
+                // 随机旋转
+                const rotate = (Math.random() - 0.5) * 60;
+
+                img.style.top = top + '%';
+                img.style.left = left + '%';
+                img.style.transform = `translate(-50%, -50%) rotate(${rotate}deg)`;
+
+                photoWall.appendChild(img);
+            }, i * 80); // 稍微加快了出片速度
+        }
+
+        setTimeout(() => {
+            finalMsg.style.display = 'block';
+            finalMsg.style.animation = 'popIn 1s both';
+        }, photoCount * 80 + 500);
+    });
+
+    // 装饰背景爱心
+    setInterval(() => {
+        const heart = document.createElement('div');
+        heart.innerHTML = '❤️';
+        heart.className = 'bg-heart';
+        heart.style.left = Math.random() * 100 + 'vw';
+        heart.style.fontSize = (Math.random() * 20 + 15) + 'px';
+        heart.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        document.body.appendChild(heart);
+        setTimeout(() => heart.remove(), 5000);
+    }, 400);
+
+</script>
+</body>
+</html>
