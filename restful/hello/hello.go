@@ -57,17 +57,6 @@ func main() {
 	})
 
 	server.AddRoute(rest.Route{
-		Method: http.MethodGet,
-		Path:   "/little-jiaqi",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 从 embed 中读取并返回 index.html
-			file, _ := content.ReadFile("assets/520.html")
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write(file)
-		}),
-	})
-
-	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
 		Path:    "/assets/:file",
 		Handler: http.FileServer(http.FS(content)).ServeHTTP,
