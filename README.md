@@ -39,9 +39,24 @@ kubectl delete pod <pod名字> --grace-period=0 --force
 kubectl get ingress
 ```
 
+### 删除 Ingress
+```shell
+kubectl delete ingress ingress名
+```
+
+### 应用配置文件
+```shell
+kubectl apply -f ./ingress/ # 也可以指定具体的文件，如 ./ingress/ingress.yaml
+```
+
 ### 查看 Service
 ```shell
 kubectl get svc
+```
+
+### 查看 删除 Service
+```shell
+kubectl delete svc 服务名
 ```
 
 ### 查看本地镜像
