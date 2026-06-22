@@ -8,6 +8,11 @@ on:
 
   workflow_dispatch:   # ✅ 手动触发
 
+env:
+  # 从 Secrets 中动态读取，保证与 Build 脚本完全一致
+  ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+  ALIYUN_NAMESPACE: ${{ secrets.ALIYUN_NAMESPACE }}
+
 jobs:
   deploy:
     # ✅ 防止 build 失败也触发 deploy
@@ -35,35 +40,35 @@ jobs:
       - name: set tag
         run: |
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
-          # 如果是 Build 流程触发的，获取 Build 流程那个 commit 的 SHA
-          echo "IMG_TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+            # 如果是 Build 流程触发的，获取 Build 流程那个 commit 的 SHA
+            echo "IMG_TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
           else
             # 如果是手动触发 (workflow_dispatch)，获取当前分支最新的 commit SHA
-            # 这通常就是你刚刚 Build 出来的那个镜像的 Tag
             echo "IMG_TAG=${{ github.sha }}" >> $GITHUB_ENV
           fi
 
       # ✅ 自动化部署所有 RPC 服务
       - name: deploy all rpc services
         run: |
-          # 遍历所有以 -rpc.yaml 结尾的文件
           for yaml in build/k8s/*-rpc.yaml; do
             if [ -f "$yaml" ]; then
-              # 从文件名获取服务名 (例如从 hello-rpc.yaml 提取出 hello-rpc)
               filename=$(basename "$yaml" .yaml)
-              # 提取基础服务名 (例如 hello)
               service_name=${filename%-rpc}
           
               echo "🚀 Deploying RPC Service: $service_name"
           
-              # 动态替换镜像地址
-              # 匹配规则：替换包含 $service_name-rpc 的镜像行
-              sed -i "s|image: .*$service_name-rpc.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-rpc:${{ github.sha }}|g" "$yaml"
+              # 使用环境变量拼接出完整的阿里云镜像地址
+              FULL_IMAGE_NAME="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-rpc:${{ env.IMG_TAG }}"
           
-              # 执行部署
+              echo "🏷️ Using Image: $FULL_IMAGE_NAME"
+          
+              # 动态替换 YAML 中的镜像地址
+              sed -i "s|image: .*$service_name-rpc.*|image: $FULL_IMAGE_NAME|g" "$yaml"
+          
+              # 执行 K8s 部署
               kubectl apply -f "$yaml"
           
-              # 等待就绪 (假设 Deployment 的名字和文件名一致)
+              # 等待就绪
               echo "⏳ Waiting for $filename rollout..."
               kubectl rollout status deployment/$filename -n default --timeout=180s
             fi
@@ -72,7 +77,6 @@ jobs:
       # ✅ 自动化部署所有 API 服务
       - name: deploy all api services
         run: |
-          # 遍历所有以 -api.yaml 结尾的文件
           for yaml in build/k8s/*-api.yaml; do
             if [ -f "$yaml" ]; then
               filename=$(basename "$yaml" .yaml)
@@ -80,10 +84,15 @@ jobs:
           
               echo "🚀 Deploying API Service: $service_name"
           
-              # 动态替换镜像地址
-              sed -i "s|image: .*$service_name-api.*|image: ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-api:${{ github.sha }}|g" "$yaml"
+              # 使用环境变量拼接出完整的阿里云镜像地址
+              FULL_IMAGE_NAME="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-api:${{ env.IMG_TAG }}"
           
-              # 执行部署
+              echo "🏷️ Using Image: $FULL_IMAGE_NAME"
+          
+              # 动态替换 YAML 中的镜像地址
+              sed -i "s|image: .*$service_name-api.*|image: $FULL_IMAGE_NAME|g" "$yaml"
+          
+              # 执行 K8s 部署
               kubectl apply -f "$yaml"
           
               # 等待就绪

@@ -4,8 +4,10 @@ on:
   workflow_dispatch:
 
 env:
-  # 注意：这里保持原样，也可以在 job 里动态获取
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  # 阿里云相关配置
+  ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
+  ALIYUN_NAMESPACE: my-quantum  # 替换为你阿里云创建的命名空间
 
 permissions:
   contents: read
@@ -26,23 +28,29 @@ jobs:
       - name: login ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # 新增：登录阿里云 ACR
+      - name: login aliyun
+        run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login ${{ env.ALIYUN_REGISTRY }} -u ${{ secrets.ALIYUN_USERNAME }} --password-stdin
+
       - name: build and push restful images
         run: |
-          # 遍历 restful 文件夹下的每一个子目录
           for dir in restful/*/; do
-            # 检查子目录下是否有 Dockerfile
             if [ -f "${dir}Dockerfile" ]; then
-              # 提取文件夹名 (如: hello)
               service_name=$(basename "$dir")
-              # 构造完整的镜像名 (文件夹名-api)
-              image_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-api:${{ github.sha }}"
           
-              echo "------------------------------------------"
+              # GHCR 镜像名
+              ghcr_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-api:${{ github.sha }}"
+              # 阿里云镜像名
+              aliyun_tag="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-api:${{ github.sha }}"
+          
               echo "🔨 Building API: $service_name"
-              echo "🏷️ Tag: $image_tag"
+              docker build -t "$ghcr_tag" -t "$aliyun_tag" -f "${dir}Dockerfile" .
           
-              docker build -t "$image_tag" -f "${dir}Dockerfile" .
-              docker push "$image_tag"
+              echo "🚀 Pushing to GHCR..."
+              docker push "$ghcr_tag"
+          
+              echo "🚀 Pushing to Aliyun..."
+              docker push "$aliyun_tag"
             fi
           done
 
@@ -60,22 +68,28 @@ jobs:
       - name: login ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # 新增：登录阿里云 ACR
+      - name: login aliyun
+        run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login ${{ env.ALIYUN_REGISTRY }} -u ${{ secrets.ALIYUN_USERNAME }} --password-stdin
+
       - name: build and push rpc images
         run: |
-          # 遍历 service 文件夹下的每一个子目录
           for dir in service/*/; do
-            # 检查子目录下是否有 Dockerfile
             if [ -f "${dir}Dockerfile" ]; then
-              # 提取文件夹名 (如: hello)
               service_name=$(basename "$dir")
-              # 构造完整的镜像名 (文件夹名-rpc)
-              image_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-rpc:${{ github.sha }}"
           
-              echo "------------------------------------------"
+              # GHCR 镜像名
+              ghcr_tag="ghcr.io/${{ steps.repo.outputs.repo }}/${service_name}-rpc:${{ github.sha }}"
+              # 阿里云镜像名
+              aliyun_tag="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-rpc:${{ github.sha }}"
+          
               echo "🔨 Building RPC: $service_name"
-              echo "🏷️ Tag: $image_tag"
+              docker build -t "$ghcr_tag" -t "$aliyun_tag" -f "${dir}Dockerfile" .
           
-              docker build -t "$image_tag" -f "${dir}Dockerfile" .
-              docker push "$image_tag"
+              echo "🚀 Pushing to GHCR..."
+              docker push "$ghcr_tag"
+          
+              echo "🚀 Pushing to Aliyun..."
+              docker push "$aliyun_tag"
             fi
           done
