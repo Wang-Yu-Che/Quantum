@@ -4,11 +4,16 @@
 package main
 
 import (
+	"bytes"
 	"embed"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"path"
+	"time"
 
 	"Quantum/restful/hello/internal/config"
 	"Quantum/restful/hello/internal/handler"
@@ -22,6 +27,8 @@ import (
 var content embed.FS
 
 var configFile = flag.String("f", "etc/hello-dev.yaml", "the config file")
+
+const deepSeekURL = "https://api.deepseek.com/chat/completions"
 
 func main() {
 	flag.Parse()
@@ -80,13 +87,73 @@ func main() {
 		}),
 	})
 
-	server.AddRoute(rest.Route{
+	/*	server.AddRoute(rest.Route{
 		Method: http.MethodGet,
 		Path:   "/little-jiaqi",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			file, _ := content.ReadFile("assets/520.html")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write(file)
+		}),
+	})*/
+
+	server.AddRoute(rest.Route{
+		Method: http.MethodPost,
+		Path:   "/even-ai/deepseek",
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authorization := r.Header.Get("Authorization")
+			if authorization == "" {
+				http.Error(w, "missing authorization", http.StatusUnauthorized)
+				return
+			}
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "read body failed", http.StatusBadRequest)
+				return
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(body, &payload); err != nil {
+				http.Error(w, "invalid json", http.StatusBadRequest)
+				return
+			}
+			payload["model"] = "deepseek-v4.1-flash"
+
+			newBody, err := json.Marshal(payload)
+			if err != nil {
+				http.Error(w, "marshal failed", http.StatusInternalServerError)
+				return
+			}
+
+			req, err := http.NewRequestWithContext(
+				r.Context(),
+				http.MethodPost,
+				deepSeekURL,
+				bytes.NewReader(newBody),
+			)
+			if err != nil {
+				http.Error(w, "create request failed", http.StatusInternalServerError)
+				return
+			}
+
+			req.Header.Set("Authorization", authorization)
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{Timeout: 10 * time.Minute}
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("deepseek request error: %v", err)
+				http.Error(w, "upstream error", http.StatusBadGateway)
+				return
+			}
+			defer resp.Body.Close()
+
+			w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+			w.WriteHeader(resp.StatusCode)
+			if _, err := io.Copy(w, resp.Body); err != nil {
+				log.Printf("copy response error: %v", err)
+			}
 		}),
 	})
 
