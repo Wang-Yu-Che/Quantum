@@ -14,11 +14,7 @@ Network=app.network
 # 原 K8s containerPort / Service 都是 8888
 PublishPort=8888:8888
 
-# 原 K8s 内存 limit: 160Mi
-Memory=160M
-
-# 原 K8s cpu limit: 800m
-PodmanArgs=--cpus=0.8
+PodmanArgs=--memory=160m --cpus=0.8
 
 # 原时区 hostPath
 Volume=/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro

@@ -15,8 +15,7 @@ Network=app.network
 # 实际上可以不 PublishPort
 # PublishPort=8080:8080
 
-Memory=160M
-PodmanArgs=--cpus=0.8
+PodmanArgs=--memory=160m --cpus=0.8
 
 Volume=/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro
 
