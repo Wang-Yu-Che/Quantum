@@ -16,10 +16,10 @@ permissions:
 jobs:
   # --- API 构建任务 ---
   build-api:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: lowercase repo
         id: repo
@@ -56,10 +56,10 @@ jobs:
 
   # --- RPC 构建任务 ---
   build-rpc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: lowercase repo
         id: repo
