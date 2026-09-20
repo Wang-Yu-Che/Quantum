@@ -6,16 +6,14 @@ on:
     types:
       - completed
 
-  workflow_dispatch:   # ✅ 手动触发
+  workflow_dispatch:
 
 env:
-  # 从 Secrets 中动态读取，保证与 Build 脚本完全一致
   ALIYUN_REGISTRY: ${{ secrets.ALIYUN_REGISTRY }}
   ALIYUN_NAMESPACE: my-quantum
 
 jobs:
   deploy:
-    # ✅ 防止 build 失败也触发 deploy
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     runs-on: ubuntu-latest
@@ -23,80 +21,39 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
-      - name: setup kubeconfig
+      - name: set image tag
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
-
-      - name: test cluster connection
-        run: |
-          kubectl get nodes
-
-      - name: lowercase repo
-        id: repo
-        run: echo "repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: set tag
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            # 如果是 Build 流程触发的，获取 Build 流程那个 commit 的 SHA
-            echo "IMG_TAG=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "IMG_TAG=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
           else
-            # 如果是手动触发 (workflow_dispatch)，获取当前分支最新的 commit SHA
-            echo "IMG_TAG=${{ github.sha }}" >> $GITHUB_ENV
+            echo "IMG_TAG=${{ github.sha }}" >> "$GITHUB_ENV"
           fi
 
-      # ✅ 自动化部署所有 RPC 服务
-      - name: deploy all rpc services
+      - name: setup ssh
         run: |
-          for yaml in build/k8s/*-rpc.yaml; do
-            if [ -f "$yaml" ]; then
-              filename=$(basename "$yaml" .yaml)
-              service_name=${filename%-rpc}
-          
-              echo "🚀 Deploying RPC Service: $service_name"
-          
-              # 使用环境变量拼接出完整的阿里云镜像地址
-              FULL_IMAGE_NAME="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-rpc:${{ env.IMG_TAG }}"
-          
-              echo "🏷️ Using Image: $FULL_IMAGE_NAME"
-          
-              # 动态替换 YAML 中的镜像地址
-              sed -i "s|image: .*$service_name-rpc.*|image: $FULL_IMAGE_NAME|g" "$yaml"
-          
-              # 执行 K8s 部署
-              kubectl apply -f "$yaml"
-          
-              # 等待就绪
-              echo "⏳ Waiting for $filename rollout..."
-              kubectl rollout status deployment/$filename -n default --timeout=180s
-            fi
-          done
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
-      # ✅ 自动化部署所有 API 服务
-      - name: deploy all api services
+      - name: upload deploy files
         run: |
-          for yaml in build/k8s/*-api.yaml; do
-            if [ -f "$yaml" ]; then
-              filename=$(basename "$yaml" .yaml)
-              service_name=${filename%-api}
-          
-              echo "🚀 Deploying API Service: $service_name"
-          
-              # 使用环境变量拼接出完整的阿里云镜像地址
-              FULL_IMAGE_NAME="${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${service_name}-api:${{ env.IMG_TAG }}"
-          
-              echo "🏷️ Using Image: $FULL_IMAGE_NAME"
-          
-              # 动态替换 YAML 中的镜像地址
-              sed -i "s|image: .*$service_name-api.*|image: $FULL_IMAGE_NAME|g" "$yaml"
-          
-              # 执行 K8s 部署
-              kubectl apply -f "$yaml"
-          
-              # 等待就绪
-              echo "⏳ Waiting for $filename rollout..."
-              kubectl rollout status deployment/$filename -n default --timeout=180s
-            fi
-          done
+          rsync -av --delete \
+            build/podman/ \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/quantum-podman/"
+
+      - name: deploy
+        run: |
+          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "
+            cd /tmp/quantum-podman &&
+
+            ALIYUN_REGISTRY='${{ env.ALIYUN_REGISTRY }}' \
+            ALIYUN_NAMESPACE='${{ env.ALIYUN_NAMESPACE }}' \
+            ALIYUN_USERNAME='${{ secrets.ALIYUN_USERNAME }}' \
+            ALIYUN_PASSWORD='${{ secrets.ALIYUN_PASSWORD }}' \
+            IMG_TAG='${IMG_TAG}' \
+            ./deploy.sh
+          "

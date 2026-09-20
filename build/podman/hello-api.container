@@ -1,0 +1,31 @@
+[Unit]
+Description=Hello API
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=hello-api
+
+# CD 时替换
+Image=IMAGE_PLACEHOLDER
+
+Network=app.network
+
+# 原 K8s containerPort / Service 都是 8888
+PublishPort=8888:8888
+
+# 原 K8s 内存 limit: 160Mi
+Memory=160M
+
+# 原 K8s cpu limit: 800m
+PodmanArgs=--cpus=0.8
+
+# 原时区 hostPath
+Volume=/usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro
+
+[Service]
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
