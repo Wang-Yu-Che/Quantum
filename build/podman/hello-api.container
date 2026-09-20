@@ -12,7 +12,7 @@ Image=IMAGE_PLACEHOLDER
 Network=app.network
 
 # 原 K8s containerPort / Service 都是 8888
-PublishPort=8888:8888
+PublishPort=127.0.0.1:8888:8888
 
 PodmanArgs=--memory=160m --cpus=0.8
 
