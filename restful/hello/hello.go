@@ -103,22 +103,25 @@ func main() {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authorization := r.Header.Get("Authorization")
 			if authorization == "" {
+				log.Printf("deepseek request rejected: missing authorization, remote=%s", r.RemoteAddr)
 				http.Error(w, "missing authorization", http.StatusUnauthorized)
 				return
 			}
 
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
+				log.Printf("deepseek read request body failed: remote=%s, error=%v", r.RemoteAddr, err)
 				http.Error(w, "read body failed", http.StatusBadRequest)
 				return
 			}
 
 			var payload map[string]any
 			if err := json.Unmarshal(body, &payload); err != nil {
+				log.Printf("deepseek invalid json: remote=%s, error=%v", r.RemoteAddr, err)
 				http.Error(w, "invalid json", http.StatusBadRequest)
 				return
 			}
-			payload["model"] = "deepseek-v4.1-flash"
+			payload["model"] = "deepseek-chat"
 
 			newBody, err := json.Marshal(payload)
 			if err != nil {
@@ -143,7 +146,7 @@ func main() {
 			client := &http.Client{Timeout: 10 * time.Minute}
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("deepseek request error: %v", err)
+				log.Printf("deepseek upstream request failed: remote=%s, error=%v", r.RemoteAddr, err)
 				http.Error(w, "upstream error", http.StatusBadGateway)
 				return
 			}
@@ -151,8 +154,21 @@ func main() {
 
 			w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 			w.WriteHeader(resp.StatusCode)
+			if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+				responseBody, err := io.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("deepseek read error response failed: remote=%s, status=%d, error=%v", r.RemoteAddr, resp.StatusCode, err)
+					return
+				}
+				log.Printf("deepseek upstream error: remote=%s, status=%d, body=%s", r.RemoteAddr, resp.StatusCode, responseBody)
+				if _, err := w.Write(responseBody); err != nil {
+					log.Printf("deepseek write error response failed: remote=%s, error=%v", r.RemoteAddr, err)
+				}
+				return
+			}
+
 			if _, err := io.Copy(w, resp.Body); err != nil {
-				log.Printf("copy response error: %v", err)
+				log.Printf("deepseek copy response failed: remote=%s, error=%v", r.RemoteAddr, err)
 			}
 		}),
 	})
